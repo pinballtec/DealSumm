@@ -1,0 +1,30 @@
+.vscode/
+*.code-workspace
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+*.egg-info/
+dist/
+build/
+
+# Docker
+docker-compose.override.yml
+docker-compose.override.yaml
+.dockerignore
+Dockerfile.*
+*.tar
+*.log
+
+# sys files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
