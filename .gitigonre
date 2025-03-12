@@ -28,3 +28,5 @@ Dockerfile.*
 Thumbs.db
 *.swp
 *.swo
+
+# plus files
