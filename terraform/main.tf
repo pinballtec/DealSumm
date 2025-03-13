@@ -103,16 +103,16 @@ resource "aws_ecs_service" "ocr_service" {
   desired_count   = 1
   launch_type     = "FARGATE"
 
-  # network_configuration {
-  #   subnets         = var.subnet_ids
-  #   security_groups = [aws_security_group.ocr_sg.id]
-  # }
+  network_configuration {
+    subnets         = var.subnet_ids
+    security_groups = [aws_security_group.ocr_sg.id]
+  }
 }
 
 # Security Group для ECS
 resource "aws_security_group" "ocr_sg" {
-  name = "ocr-sg"
-  # vpc_id = var.vpc_id
+  name   = "ocr-sg"
+  vpc_id = var.vpc_id
 
   ingress {
     from_port   = 443
