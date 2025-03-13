@@ -1,9 +1,9 @@
 import boto3
 import json
+import os
 
-sqs = boto3.client('sqs', region_name='us-east-1')
-
-queue_url = 'https://sqs.us-east-1.amazonaws.com/your-account-id/OCRQueue'
+sqs = boto3.client('sqs', region_name=os.getenv('AWS_REGION'))
+queue_url = os.environ['SQS_QUEUE_URL']
 
 def send_pdf_for_ocr(pdf_url, output_location):
     message = {
@@ -16,5 +16,7 @@ def send_pdf_for_ocr(pdf_url, output_location):
     )
     print(f'Message ID: {response["MessageId"]}')
 
-# Example usage
-send_pdf_for_ocr('https://example.com/mydoc.pdf', 's3://mybucket/output/')
+if __name__ == "__main__":
+    pdf_url = "s3://mybucket/input/output.pdf"
+    output_location = "s3://mybucket/output/output.pdf"
+    send_pdf_for_ocr(pdf_url, output_location)
