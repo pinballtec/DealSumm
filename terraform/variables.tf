@@ -69,16 +69,3 @@ variable "vpc_id" {
   type        = string
   default     = ""
 }
-
-variable "s3_state_key" {
-  description = "S3 key path for Terraform state file"
-  type        = string
-  default     = "terraform/state/default.tfstate"
-}
-
-
-variable "subnet_a_az" {
-  description = "Availability zone for subnet A"
-  type        = string
-  default     = "eu-central-1a"
-}
