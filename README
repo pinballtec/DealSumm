@@ -6,20 +6,20 @@ This project demonstrates a complete, production-grade setup for processing PDF 
 
 ## Project Structure
 
-```bash
-.
-├── OCR
-│   ├── Dockerfile          # Dockerfile for OCR worker
-│   └── ocr_worker.py       # OCR processing script
-├── terraform
-│   ├── main.tf             # Main Terraform configuration
-│   ├── variables.tf        # Terraform input variables
-│   └── vpc.tf              # Terraform configuration for VPC and networking
-├── Dockerfile              # Dockerfile for PDF uploader (EC2 Client)
-├── process.py              # PDF processing script for EC2 client
-├── requirements.txt        # Python dependencies
-└── send_ocr_request.py     # Script to send OCR requests to SQS
-```
+
+    
+    ├── OCR
+    │   ├── Dockerfile          # Dockerfile for OCR worker
+    │   └── ocr_worker.py       # OCR processing script
+    ├── terraform
+    │   ├── main.tf             # Main Terraform configuration
+    │   ├── variables.tf        # Terraform input variables
+    │   └── vpc.tf              # Terraform configuration for VPC and networking
+    ├── Dockerfile              # Dockerfile for PDF uploader (EC2 Client)
+    ├── process.py              # PDF processing script for EC2 client
+    ├── requirements.txt        # Python dependencies
+    └── send_ocr_request.py     # Script to send OCR requests to SQS
+
 
 ---
 
@@ -54,40 +54,40 @@ This project demonstrates a complete, production-grade setup for processing PDF 
 
 ### 1. Terraform Initialization
 
-```bash
-cd terraform
-terraform init
-```
+
+    cd terraform
+    terraform init
+
 
 ### 2. Terraform Plan & Apply
 
 Review the plan and apply the infrastructure:
 
-```bash
-terraform plan
-terraform apply
-```
+
+    terraform plan
+    terraform apply
+
 
 ### 3. Docker Image Build & Push
 
 #### ECS Worker
 
-```bash
-cd OCR
-aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin <ecs-worker-repo-url>
-docker build -t ecs-worker .
-docker tag ecs-worker:latest <ecs-worker-repo-url>:latest
-docker push <ecs-worker-repo-url>:latest
-```
+
+    cd OCR
+    aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin <ecs-worker-repo-url>
+    docker build -t ecs-worker .
+    docker tag ecs-worker:latest <ecs-worker-repo-url>:latest
+    docker push <ecs-worker-repo-url>:latest
+
 
 #### EC2 Client
 
-```bash
-aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin <ec2-client-repo-url>
-docker build -t ec2-client .
-docker tag ec2-client:latest <ec2-client-repo-url>:latest
-docker push <ec2-client-repo-url>:latest
-```
+
+    aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin <ec2-client-repo-url>
+    docker build -t ec2-client .
+    docker tag ec2-client:latest <ec2-client-repo-url>:latest
+    docker push <ec2-client-repo-url>:latest
+
 
 ---
 
@@ -113,12 +113,9 @@ Set these environment variables in your EC2 instance and ECS task:
 
 To delete all infrastructure created by Terraform:
 
-```bash
-terraform destroy
-```
+
+    terraform destroy
+
 
 ---
-
-## Contributing
-Feel free to create issues and PRs for suggestions or improvements.
 
