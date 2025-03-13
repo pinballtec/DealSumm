@@ -31,3 +31,6 @@ Thumbs.db
 
 # plus files
 .env
+
+terraform/.terraform
+terraform/.terraform/.terraform.lock.hcl

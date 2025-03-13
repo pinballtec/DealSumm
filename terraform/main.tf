@@ -1,10 +1,10 @@
 terraform {
   backend "s3" {
-    bucket         = var.s3_bucket_name
-    key            = var.s3_state_key
-    region         = var.aws_region
-    dynamodb_table = var.dynamodb_table_name
-    encrypt        = true
+    bucket = "terraform-state-bucket"
+    key = "state/default.tfstate"
+    region = "eu-central-1"
+    dynamodb_table = "lock-table"
+    encrypt = true
   }
   required_providers {
     aws = {
@@ -21,6 +21,10 @@ provider "aws" {
 
 resource "aws_ecr_repository" "ec2_client_repo" {
   name = "send-ocr-request-repo"
+}
+
+resource "aws_ecr_repository" "ecs_worker_repo" {
+  name = "ecs-worker-ocr"
 }
 
 output "ec2_client_ecr_url" {
@@ -73,7 +77,7 @@ resource "aws_iam_role_policy" "ecs_task_policy" {
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow",
-      Action   = ["sqs:*", "logs:*"],
+      Action   = ["sqs:*", "logs:*", "s3:*"],
       Resource = "*"
     }]
   })
@@ -93,22 +97,6 @@ resource "aws_iam_role" "ec2_iam_role" {
   })
 }
 
-
-# acess policy for ec2 role 
-resource "aws_iam_role_policy" "ec2_policy" {
-  name = "ec2_ocr_policy"
-  role = aws_iam_role.ec2_instance_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["sqs:*", "logs:*", "s3:*", "ecr:*"]
-      Resource = "*"
-    }]
-  })
-}
-
 # ECS Task Definition (with OCRMyPDF)
 resource "aws_ecs_task_definition" "ocr_task" {
   family                   = "ocrmypdf-task"
@@ -120,7 +108,7 @@ resource "aws_ecs_task_definition" "ocr_task" {
 
   container_definitions = jsonencode([{
     name       = "ocrmypdf-container"
-    image      = "ocrmypdf/ocrmypdf" # image from DockerHub
+    image      = "${aws_ecr_repository.ecs_worker_repo.repository_url}:latest" # image from ECR
     essential  = true
     entryPoint = ["sh", "-c"]
     command    = ["your-command-to-read-from-sqs-and-process-pdfs.sh"]
@@ -168,27 +156,6 @@ resource "aws_security_group" "ocr_sg" {
   }
 }
 
-# EC2 instance (for SQS alerting)
-resource "aws_instance" "ocr_client" {
-  ami                    = "ami-0aef57767f5404a99" # Amazon Linux 2 
-  instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.public_subnet_a.id
-  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
-  iam_instance_profile   = aws_iam_instance_profile.ec2_profile.name
-
-  user_data = <<-EOF
-    #!/bin/bash
-    sudo apt update -y
-    sudo apt install docker.io -y
-    sudo systemctl start docker
-    sudo usermod -aG docker ubuntu
-  EOF
-
-  tags = {
-    Name = "OCR-EC2-Client"
-  }
-}
-
 # Security Group for EC2
 resource "aws_security_group" "ec2_sg" {
   name   = "ec2-client-sg"
@@ -198,7 +165,7 @@ resource "aws_security_group" "ec2_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # можно ограничить твоим IP
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 
   egress {
@@ -241,31 +208,11 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   role = aws_iam_role.ec2_role.name
 }
 
-# Security Group for EC2 (SSH)
-resource "aws_security_group" "ec2_sg" {
-  name   = "ec2-sg"
-  vpc_id = aws_vpc.ocr_vpc.id
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["188.146.34.60"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["188.146.34.60"]
-  }
-}
-
-# Klucz ( SSH )
-resource "aws_key_pair" "ec2_key" {
-  key_name   = "ocr-ec2-key"
-  public_key = file("~/.ssh/id_rsa.pub")
-}
+# # Klucz ( SSH )
+# resource "aws_key_pair" "ec2_key" {
+#   key_name   = "ocr-ec2-key"
+#   public_key = file("~/.ssh/id_rsa.pub")
+# }
 
 # AMI :
 data "aws_ami" "ubuntu_latest" {
@@ -278,28 +225,27 @@ data "aws_ami" "ubuntu_latest" {
   }
 }
 
-# EC2 with  AMI
+# EC2 with AMI for SQS alerting
 resource "aws_instance" "ocr_client" {
   ami                    = data.aws_ami.ubuntu_latest.id
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.public_subnet_a.id
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.ec2_profile.name
-  key_name               = aws_key_pair.ocr_ec2_key.key_name
+  key_name               = "deploy-key-terraform-test" 
 
   user_data = <<-EOF
     #!/bin/bash
     sudo apt update -y
-    sudo apt install -y docker.io
+    sudo apt install -y docker.io awscli
     sudo usermod -aG docker ubuntu
     sudo systemctl enable docker
 
     aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${aws_ecr_repository.ec2_client_repo.repository_url}
 
-
     docker run -d \
       -e AWS_REGION=${var.aws_region} \
-      -e SQS_QUEUE_URL=${aws_sqs_queue.ocr_queue.id} \
+      -e SQS_QUEUE_URL=${aws_sqs_queue.ocr_queue.url} \
       ${aws_ecr_repository.ec2_client_repo.repository_url}:latest
   EOF
 
