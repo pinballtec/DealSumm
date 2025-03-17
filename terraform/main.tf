@@ -1,10 +1,10 @@
 terraform {
   backend "s3" {
-    bucket = "terraform-state-bucket"
-    key = "state/default.tfstate"
-    region = "eu-central-1"
-    dynamodb_table = "lock-table"
-    encrypt = true
+    bucket         = "terraform-state-bucket-techniproject"
+    key            = "terraform/state/default.tfstate"
+    region         = "eu-central-1"
+    dynamodb_table = "terraform-lock-table"
+    encrypt        = true
   }
   required_providers {
     aws = {
@@ -13,6 +13,16 @@ terraform {
     }
   }
   required_version = ">= 1.3.0"
+}
+
+module "vpc" {
+  source = "./modules/vpc"
+
+  vpc_cidr_block             = var.vpc_cidr_block
+  subnet_a_cidr_block        = var.subnet_a_cidr_block
+  subnet_a_az                = var.subnet_a_az
+  subnet_b_cidr_block        = var.subnet_b_cidr_block
+  subnet_b_availability_zone = var.subnet_b_availability_zone
 }
 
 provider "aws" {
@@ -132,7 +142,7 @@ resource "aws_ecs_service" "ocr_service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = var.subnet_ids
+    subnets         = module.vpc.subnet_ids # NOW THIS WILL WORK ✅
     security_groups = [aws_security_group.ocr_sg.id]
   }
 }
@@ -140,7 +150,7 @@ resource "aws_ecs_service" "ocr_service" {
 # Security Group for ECS
 resource "aws_security_group" "ocr_sg" {
   name   = "ocr-sg"
-  vpc_id = var.vpc_id
+  vpc_id = module.vpc.vpc_id
 
   ingress {
     from_port   = 443
@@ -159,13 +169,13 @@ resource "aws_security_group" "ocr_sg" {
 # Security Group for EC2
 resource "aws_security_group" "ec2_sg" {
   name   = "ec2-client-sg"
-  vpc_id = aws_vpc.ocr_vpc.id
+  vpc_id = module.vpc.vpc_id
 
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] 
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -229,10 +239,10 @@ data "aws_ami" "ubuntu_latest" {
 resource "aws_instance" "ocr_client" {
   ami                    = data.aws_ami.ubuntu_latest.id
   instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.public_subnet_a.id
+  subnet_id              = module.vpc.subnet_ids[0]
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.ec2_profile.name
-  key_name               = "deploy-key-terraform-test" 
+  key_name               = "deploy-key-terraform-test"
 
   user_data = <<-EOF
     #!/bin/bash
