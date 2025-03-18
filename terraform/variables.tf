@@ -57,15 +57,3 @@ variable "subnet_b_availability_zone" {
   type        = string
   default     = "eu-central-1b"
 }
-
-variable "subnet_ids" {
-  description = "List of subnet IDs for ECS service"
-  type        = list(string)
-  default     = []
-}
-
-variable "vpc_id" {
-  description = "VPC ID for security groups"
-  type        = string
-  default     = ""
-}
