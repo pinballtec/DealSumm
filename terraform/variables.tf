@@ -57,3 +57,7 @@ variable "subnet_b_availability_zone" {
   type        = string
   default     = "eu-central-1b"
 }
+
+variable "ecr_repository_url" {
+  default = "377368878722.dkr.ecr.eu-central-1.amazonaws.com/send-ocr-request-repo"
+}
