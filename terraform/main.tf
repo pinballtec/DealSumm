@@ -29,16 +29,16 @@ provider "aws" {
   region = var.aws_region
 }
 
-resource "aws_ecr_repository" "ec2_client_repo" {
-  name = "send-ocr-request-repo"
-}
+# resource "aws_ecr_repository" "ec2_client_repo" {
+#   name = "send-ocr-request-repo"
+# }
 
 resource "aws_ecr_repository" "ecs_worker_repo" {
   name = "ecs-worker-ocr"
 }
 
 output "ec2_client_ecr_url" {
-  value = aws_ecr_repository.ec2_client_repo.repository_url
+  value = var.ecr_repository_url
 }
 
 resource "aws_s3_bucket" "input_bucket" {
@@ -205,11 +205,23 @@ resource "aws_iam_role_policy" "ec2_policy" {
   role = aws_iam_role.ec2_role.id
   policy = jsonencode({
     Version = "2012-10-17",
-    Statement = [{
-      Effect   = "Allow",
-      Action   = ["sqs:*", "logs:*", "s3:*", "ecr:*"],
-      Resource = "*"
-    }]
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = ["sqs:*", "logs:*", "s3:*"],
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow",
+        Action   = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        Resource = "*"
+      }
+    ]
   })
 }
 
@@ -253,22 +265,22 @@ resource "aws_instance" "ocr_client" {
     sudo usermod -aG docker ubuntu
     newgrp docker
 
-    # delay before login
     sleep 10
 
     aws sts get-caller-identity
 
-    aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${aws_ecr_repository.ec2_client_repo.repository_url}
+    aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${var.ecr_repository_url}
 
-    sudo docker pull ${aws_ecr_repository.ec2_client_repo.repository_url}:latest
+    sudo docker pull ${var.ecr_repository_url}:latest
 
     docker run -d \
       -e AWS_REGION=${var.aws_region} \
       -e SQS_QUEUE_URL=${aws_sqs_queue.ocr_queue.url} \
-      ${aws_ecr_repository.ec2_client_repo.repository_url}:latest
+      ${var.ecr_repository_url}:latest
   EOF
 
   tags = {
     Name = "OCRClientEC2"
   }
 }
+
