@@ -207,7 +207,7 @@ resource "aws_iam_role_policy" "ec2_policy" {
     Version = "2012-10-17",
     Statement = [{
       Effect   = "Allow",
-      Action   = ["sqs:*", "logs:*", "s3:*"],
+      Action   = ["sqs:*", "logs:*", "s3:*", "ecr:*"],
       Resource = "*"
     }]
   })
@@ -249,10 +249,18 @@ resource "aws_instance" "ocr_client" {
     #!/bin/bash
     sudo apt update -y
     sudo apt install -y docker.io awscli
+    sudo systemctl enable --now docker
     sudo usermod -aG docker ubuntu
-    sudo systemctl enable docker
+    newgrp docker
+
+    # delay before login
+    sleep 10
+
+    aws sts get-caller-identity
 
     aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${aws_ecr_repository.ec2_client_repo.repository_url}
+
+    sudo docker pull ${aws_ecr_repository.ec2_client_repo.repository_url}:latest
 
     docker run -d \
       -e AWS_REGION=${var.aws_region} \
